@@ -130,21 +130,17 @@ class XMLObject:
             line += self.parameters[-1][0] + '="' + self.parameters[-1][1] + '"'
         line += '>' + self.value
         if len(self.children) == 0:
-            line += '</' + self.name + '>'
+            line += '</' + self.name + '>\n'
             return [line]
-        lines.append(line)
+        lines.append(line + '\n')
         children_lines = []
         for child in self.children:
             children_lines.append(child.get_lines(layer=layer+1))
         for line_list in children_lines:
             for string in line_list:
                 lines.append(string)
-        lines.append(tabs + '</' + self.name + '>')
+        lines.append(tabs + '</' + self.name + '>\n')
         return lines
 
 
 xml_object = XMLObject('test.xml')
-
-output_list = xml_object.get_lines()
-for text in output_list:
-    print(text)
