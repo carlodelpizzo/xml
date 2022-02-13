@@ -72,7 +72,7 @@ def get_xml_data(xml_path=None, xml_string=None):
     return [name, value, parameters, children]
 
 
-# [name, value, parameters, children]
+# xml_data = [name, value, parameters, children]; Initialize with xml_path
 class XMLObject:
     def __init__(self, xml_path=None, xml_data=None, parent=None):
         if xml_path:
@@ -141,6 +141,3 @@ class XMLObject:
                 lines.append(string)
         lines.append(tabs + '</' + self.name + '>\n')
         return lines
-
-
-xml_object = XMLObject('test.xml')
