@@ -41,6 +41,8 @@ def get_xml_data(xml_path=None, xml_string=None):
             continue
         if get_params:
             if char == '>':
+                if parameters[-1] == '/':
+                    break
                 get_params = False
                 get_value = True
                 continue
@@ -48,7 +50,7 @@ def get_xml_data(xml_path=None, xml_string=None):
             continue
         if check_for_close:
             if hold_tag:
-                if char == '!':
+                if char == '!' or char == '?':
                     comment = True
                     hold_tag = False
                     update_no_param = True
@@ -65,8 +67,9 @@ def get_xml_data(xml_path=None, xml_string=None):
                             update_no_param = True
                             continue
                 if char == '>':
-                    if '/' not in held_tag and len(ignore_subs) == 0:
-                        ignore_subs.append(held_tag_no_param)
+                    if ('/' not in held_tag_no_param or held_tag[-1] == '/') and len(ignore_subs) == 0:
+                        if '/' not in held_tag:
+                            ignore_subs.append(held_tag_no_param)
                         temp = get_xml_data(xml_string='<' + held_tag + '>' + xml_string.replace(running_string, ''))
                         children.append(temp)
                     held_tag = ''
@@ -90,6 +93,8 @@ def get_xml_data(xml_path=None, xml_string=None):
                 write_name = False
                 continue
             if char == '>' or char == ' ':
+                if name[-1] == '/':
+                    break
                 get_value = True
                 write_name = False
                 check_for_close = True
@@ -117,13 +122,21 @@ class XMLObject:
         self.value = xml_data[1]
         self.parameters = []
         self.children = []
+        self.self_closed = False
+        if '/' in self.name:
+            self.name = self.name[:-1]
+            self.self_closed = True
 
         param_name = ''
         param_value = ''
         get_name = False
         get_value = False
         # Parse parameters
+        if self.name == 'documentation':
+            pass
         for char in xml_data[2]:
+            if char == ' ':
+                continue
             if get_value:
                 if char == '"' or char == "'":
                     if param_value == '':
@@ -145,6 +158,8 @@ class XMLObject:
             if char != ' ':
                 get_name = True
                 param_name += char
+        if len(xml_data[2]) != 0 and xml_data[2][-1] == '/':
+            self.self_closed = True
 
         # Make children
         for child in xml_data[3]:
@@ -164,12 +179,17 @@ class XMLObject:
                 line += param[0] + '="' + param[1] + '" '
             line += self.parameters[-1][0] + '="' + self.parameters[-1][1] + '"'
 
+        if self.self_closed:
+            line += '/'
         line += '>' + self.value
 
         if len(self.children) == 0:
+            if self.self_closed:
+                line += '\n'
             lines.append(line)
-            line = '</' + self.name + '>\n'
-            lines.append(line)
+            if not self.self_closed:
+                line = '</' + self.name + '>\n'
+                lines.append(line)
             return lines
 
         lines.append(line + '\n')
@@ -179,7 +199,8 @@ class XMLObject:
             for line in child_lines:
                 lines.append(line)
 
-        lines.append(tabs + '</' + self.name + '>\n')
+        if not self.self_closed:
+            lines.append(tabs + '</' + self.name + '>\n')
         return lines
 
     def get_tag(self, tag_name: str):
