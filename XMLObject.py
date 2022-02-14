@@ -1,13 +1,14 @@
 
 
 def get_xml_data(xml_path=None, xml_string=None):
+    new_line_string = '**NEWLINE**'
     if xml_path:
         with open(xml_path, errors='ignore') as xml_file:
             xml_lines = xml_file.readlines()
 
         xml_string = ''
         for line in xml_lines:
-            new_line = line.replace('\n', '')
+            new_line = line.replace('\n', new_line_string)
             new_line = new_line.replace('\t', '')
             xml_string += new_line
 
@@ -107,22 +108,36 @@ def get_xml_data(xml_path=None, xml_string=None):
         if char == '<':
             write_name = True
             continue
+    name = name.replace(new_line_string, '')
+    parameters = parameters.replace(new_line_string, '')
+    value = value.replace(new_line_string, '\n')
+    if value == '\n':
+        value = ''
+    if value.endswith('\n'):
+        value = value[:-2]
 
     return [name, value, parameters, children]
 
 
-# xml_data = [name, value, parameters, children]; Initialize with xml_path
+# xml_data = ['name', 'value', [parameters], [children]]; Initialize with xml_path
 class XMLObject:
-    def __init__(self, xml_path=None, xml_data=None, parent=None):
+    def __init__(self, xml_path=None, xml_data=None, parents=None):
         if xml_path:
             xml_data = get_xml_data(xml_path)
 
-        self.parent = parent
+        self.parents = []
+        new_parents = []
+        if parents:
+            self.parents = parents
+            for parent in parents:
+                new_parents.append(parent)
+        new_parents.append(self)
+        self.children = []
         self.name = xml_data[0]
         self.value = xml_data[1]
         self.parameters = []
-        self.children = []
         self.self_closed = False
+        self.delete = False
         if '/' in self.name:
             self.name = self.name[:-1]
             self.self_closed = True
@@ -161,9 +176,11 @@ class XMLObject:
 
         # Make children
         for child in xml_data[3]:
-            self.children.append(XMLObject(xml_data=child, parent=self))
+            self.children.append(XMLObject(xml_data=child, parents=new_parents))
 
     def get_lines(self, layer=0):
+        if self.delete:
+            return []
         lines = []
         line = ''
         tabs = ''
@@ -182,11 +199,14 @@ class XMLObject:
         line += '>' + self.value
 
         if len(self.children) == 0:
-            if self.self_closed:
+            if self.self_closed or '\n' in self.value:
                 line += '\n'
             lines.append(line)
             if not self.self_closed:
-                line = '</' + self.name + '>\n'
+                if '\n' not in self.value:
+                    line = '</' + self.name + '>\n'
+                else:
+                    line = tabs + '</' + self.name + '>\n'
                 lines.append(line)
             return lines
 
@@ -206,6 +226,27 @@ class XMLObject:
         for child in self.children:
             if tag_name in child.name:
                 matching_tags.append(child)
+        for child in self.children:
+            child_tags = child.get_tag(tag_name)
+            if child_tags is None:
+                continue
+            for child_tag in child_tags:
+                matching_tags.append(child_tag)
         if not matching_tags:
-            matching_tags.append(None)
+            return None
+        return matching_tags
+
+    def get_tag_by_value(self, value: str):
+        matching_tags = []
+        for child in self.children:
+            if value in child.value:
+                matching_tags.append(child)
+        for child in self.children:
+            child_tags = child.get_tag_by_value(value)
+            if child_tags is None:
+                continue
+            for child_tag in child_tags:
+                matching_tags.append(child_tag)
+        if not matching_tags:
+            return None
         return matching_tags
