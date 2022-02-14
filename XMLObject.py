@@ -132,8 +132,6 @@ class XMLObject:
         get_name = False
         get_value = False
         # Parse parameters
-        if self.name == 'documentation':
-            pass
         for char in xml_data[2]:
             if char == ' ':
                 continue
