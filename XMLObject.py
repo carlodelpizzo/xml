@@ -27,8 +27,6 @@ def get_xml_data(xml_path=None, xml_string=None):
     held_tag_no_param = ''
     ignore_subs = []
     for char in xml_string:
-        if held_tag == 'capabilities':
-            pass
         running_string += char
         if comment:
             if char == '>':
