@@ -20,10 +20,20 @@ def get_xml_data(xml_path=None, xml_string=None):
     hold_tag = False
     get_params = False
     get_value = False
+    comment = False
+    update_no_param = True
     running_string = ''
     held_tag = ''
+    held_tag_no_param = ''
+    ignore_subs = []
     for char in xml_string:
+        if held_tag == 'capabilities':
+            pass
         running_string += char
+        if comment:
+            if char == '>':
+                comment = False
+            continue
         if get_value:
             if char == '<':
                 get_value = False
@@ -35,19 +45,41 @@ def get_xml_data(xml_path=None, xml_string=None):
             if char == '>':
                 get_params = False
                 get_value = True
+                continue
             parameters += char
             continue
         if check_for_close:
             if hold_tag:
+                if char == '!':
+                    comment = True
+                    hold_tag = False
+                    update_no_param = True
+                    continue
+                if char == '>' or char == ' ':
+                    if '/' in held_tag and held_tag.replace('/', '') == name:
+                        break
+                    if len(ignore_subs) != 0:
+                        if '/' in held_tag_no_param and ignore_subs[-1] == held_tag_no_param.replace('/', ''):
+                            ignore_subs.pop(-1)
+                            held_tag = ''
+                            held_tag_no_param = ''
+                            hold_tag = False
+                            update_no_param = True
+                            continue
                 if char == '>':
-                    if '/' not in held_tag or held_tag.replace('/', '') != name:
-                        if '/' not in held_tag:
-                            children.append(get_xml_data(xml_string='<' + held_tag + '>' +
-                                                                    xml_string.replace(running_string, '')))
-                        held_tag = ''
-                        hold_tag = False
-                        continue
-                    break
+                    if '/' not in held_tag and len(ignore_subs) == 0:
+                        ignore_subs.append(held_tag_no_param)
+                        temp = get_xml_data(xml_string='<' + held_tag + '>' + xml_string.replace(running_string, ''))
+                        children.append(temp)
+                    held_tag = ''
+                    held_tag_no_param = ''
+                    hold_tag = False
+                    update_no_param = True
+                    continue
+                if char == ' ':
+                    update_no_param = False
+                if update_no_param:
+                    held_tag_no_param += char
                 held_tag += char
                 continue
             if char == '<':
@@ -55,6 +87,10 @@ def get_xml_data(xml_path=None, xml_string=None):
                 continue
             continue
         if write_name:
+            if char == '!':
+                comment = True
+                write_name = False
+                continue
             if char == '>' or char == ' ':
                 get_value = True
                 write_name = False
@@ -123,21 +159,36 @@ class XMLObject:
         for _ in range(layer):
             tabs += '\t'
         line += tabs + '<' + self.name
+
         if len(self.parameters) != 0:
             line += ' '
             for param in self.parameters[:-1]:
                 line += param[0] + '="' + param[1] + '" '
             line += self.parameters[-1][0] + '="' + self.parameters[-1][1] + '"'
+
         line += '>' + self.value
+
         if len(self.children) == 0:
-            line += '</' + self.name + '>\n'
-            return [line]
+            lines.append(line)
+            line = '</' + self.name + '>\n'
+            lines.append(line)
+            return lines
+
         lines.append(line + '\n')
-        children_lines = []
+
         for child in self.children:
-            children_lines.append(child.get_lines(layer=layer+1))
-        for line_list in children_lines:
-            for string in line_list:
-                lines.append(string)
+            child_lines = child.get_lines(layer=layer+1)
+            for line in child_lines:
+                lines.append(line)
+
         lines.append(tabs + '</' + self.name + '>\n')
         return lines
+
+    def get_tag(self, tag_name: str):
+        matching_tags = []
+        for child in self.children:
+            if tag_name in child.name:
+                matching_tags.append(child)
+        if not matching_tags:
+            matching_tags.append(None)
+        return matching_tags
