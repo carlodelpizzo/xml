@@ -121,7 +121,6 @@ def get_xml_data(xml_path=None, xml_string=None):
 
 # xml_data = ['name', 'value', [parameters], [children]]; Initialize with xml_path
 class XMLObject:
-    # Test
     def __init__(self, xml_path=None, xml_data=None, parents=None):
         if xml_path:
             xml_data = get_xml_data(xml_path)
