@@ -119,7 +119,7 @@ def get_xml_data(xml_path=None, xml_string=None):
     return [name, value, parameters, children]
 
 
-# xml_data = ['name', 'value', [parameters], [children]]; Initialize with xml_path
+# xml_data = ['tag_name', 'tag_value', [tag_attributes], [children]]; Initialize with path to xml file
 class XMLObject:
     def __init__(self, xml_path=None, xml_data=None, parents=None):
         if xml_path:
@@ -135,9 +135,10 @@ class XMLObject:
         self.children = []
         self.name = xml_data[0]
         self.value = xml_data[1]
-        self.parameters = []
+        self.parameters = []  # [[param_name, param_value], ...]
         self.self_closed = False
         self.delete = False
+        self.restore_data = []  # [name, value, parameters, parents, children, self_closed, delete]
         if '/' in self.name:
             self.name = self.name[:-1]
             self.self_closed = True
@@ -146,7 +147,7 @@ class XMLObject:
         param_value = ''
         get_name = False
         get_value = False
-        # Parse parameters
+        # Parse parameters (attributes)
         for char in xml_data[2]:
             if char == ' ':
                 continue
@@ -250,3 +251,23 @@ class XMLObject:
         if not matching_tags:
             return None
         return matching_tags
+
+    def set_restore_point(self):
+        self.restore_data = [self.name, self.value, self.parameters, self.parents,
+                             self.children, self.self_closed, self.delete]
+        for child in self.children:
+            child.set_restore_point()
+
+    def restore(self):
+        if not self.restore_data:
+            return
+        self.name = self.restore_data[0]
+        self.value = self.restore_data[1]
+        self.parameters = self.restore_data[2]
+        self.parents = self.restore_data[3]
+        self.children = self.restore_data[4]
+        self.self_closed = self.restore_data[5]
+        self.delete = self.restore_data[6]
+        self.restore_data = []
+        for child in self.children:
+            child.restore()
